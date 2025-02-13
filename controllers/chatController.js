@@ -102,39 +102,43 @@ exports.getChatBotResponse = async (req, res) => {
         .json({ error: "Character and user message are required" });
     }
 
-    // Normalize inputs
     character = character.toLowerCase();
     user_message = user_message.toLowerCase();
 
-    // Retrieve character details from MongoDB
-    const movieCharacter = await Character.findOne({ character });
-    const personalityText = movieCharacter
-      ? movieCharacter.personality
-      : "you are a movie character";
-
     // Query Pinecone for similar dialogue context based on the user query
-    const pineconeResponse = await queryPinecone(user_message);
+    const pineconeResponse = await queryPinecone(
+      character + " " + user_message
+    );
 
     let retrievedContext = "";
 
-    // If Pinecone response contains matches, join them into a single string
-    if (
-      pineconeResponse &&
-      pineconeResponse.matches &&
-      pineconeResponse.matches.length > 0
-    ) {
-      retrievedContext = pineconeResponse.matches
-        .map((match) => match.metadata.text)
-        .join("\n");
+    // If Pinecone response contains matches, join them into a single string if the name matches character
+    if (pineconeResponse && pineconeResponse.matches.length > 0) {
+      const matches = pineconeResponse.matches;
+      matches.forEach((match) => {
+        if (match.metadata.name === character) {
+          retrievedContext += match.text;
+        }
+      });
     }
 
     // Build a complete prompt using character details, retrieved context, and the user query
-    const fullPrompt = `You are ${character}, a movie character from Indian cinema with the following personality: ${personalityText}.
+    let fullPrompt;
+
+    // check that this character is in pinecone db or not using pinecone metadata if not then make another prompt for this character
+    if (character === pineconeResponse.matches[0].metadata.name) {
+      fullPrompt = `You are ${character}, a movie character from Indian cinema.
 ${
   retrievedContext ? "Relevant past dialogues:\n" + retrievedContext + "\n" : ""
 }
 User: ${user_message}
-Provide a single, concise response in your signature tone. Limit your answer to a maximum of 25 words.`;
+Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+    } else {
+      // if character is not in pinecone db then make another prompt
+      fullPrompt = `You are ${character}, a movie character from Indian cinema.
+User: ${user_message}
+Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+    }
 
     // Generate the final response using the Gemini AI
     const chatBotResponse = await generateGeminiResponse(fullPrompt);

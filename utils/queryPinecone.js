@@ -34,7 +34,7 @@ exports.queryPinecone = async (query) => {
         includeMetadata: true,
       });
 
-    console.log("Query response:", queryResponse);
+    // console.log("Query response:", queryResponse);
 
     return queryResponse;
   } catch (error) {
