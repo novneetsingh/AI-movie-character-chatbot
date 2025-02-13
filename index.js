@@ -4,7 +4,7 @@ require("dotenv").config(); // Load environment variables from .env file
 const chatRoutes = require("./routes/chatRoutes"); // Import chat routes
 
 // Define port number
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 4000;
 
 // Middleware setup
 app.use(express.json()); // Parse JSON requests
@@ -13,7 +13,7 @@ app.use(express.json()); // Parse JSON requests
 require("./config/database").dbconnect(); // Connect to database
 
 // run this function to create vector embeddings for characters and store them in pinecone
-// require("./utils/pinecone").indexCharacterEmbeddings();
+// require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
 
 // Route setup
 app.use("/chat", chatRoutes);

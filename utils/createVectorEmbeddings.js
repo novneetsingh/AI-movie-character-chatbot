@@ -1,9 +1,5 @@
-// Import the Pinecone library and your Character model
-const { Pinecone } = require("@pinecone-database/pinecone");
 const Character = require("../models/Character");
-
-// Initialize a Pinecone client using your API key from the environment
-const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+const { pc } = require("../config/pinecone");
 
 /**
  * Fetches all character documents from MongoDB, prepares a data array by extracting dialogues,

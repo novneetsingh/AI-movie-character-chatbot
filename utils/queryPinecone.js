@@ -1,7 +1,4 @@
-const { Pinecone } = require("@pinecone-database/pinecone");
-
-// Initialize a Pinecone client using your API key from the environment
-const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+const { pc } = require("../config/pinecone");
 
 exports.queryPinecone = async (query) => {
   try {
