@@ -10,11 +10,12 @@ const PORT = process.env.PORT || 4000;
 // Middleware setup
 app.use(express.json()); // Parse JSON requests
 
-// Apply rate limiting middleware
+// Apply rate limiting middleware for all routes with a limit of 5 requests per second per IP
 app.use(
   rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    windowMs: 1000, // 1 second window
+    max: 5, // Limit each IP to 5 requests per second
+    message: { error: "Too many requests, please try again later." },
   })
 );
 
