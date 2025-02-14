@@ -2,6 +2,7 @@ const Character = require("../models/Character");
 const { iconicCharacters } = require("../utils/charactersData");
 const { genAI } = require("../config/genAI"); // Import the configured Gemini instance
 const { queryPinecone } = require("../utils/queryPinecone"); // Import the Pinecone query function
+const { redisClient } = require("../config/redis");
 
 // Create characters in the database
 exports.createCharacters = async (req, res) => {
@@ -69,7 +70,7 @@ exports.createCharacters = async (req, res) => {
 //   }
 // };
 
-// Function to generate an AI response using the Google Generative AI (Gemini) API
+// Function to generate an AI response using the Google Generative AI (Gemini) API for level 1 and 2
 // const generateAIResponse = async (name, personality, user_message) => {
 //   try {
 //     // Get the Gemini model instance (adjust model name if needed)
@@ -93,6 +94,64 @@ exports.createCharacters = async (req, res) => {
 // };
 
 // Controller to get a chatbot response (Level 3)
+// exports.getChatBotResponse = async (req, res) => {
+//   try {
+//     let { character, user_message } = req.body;
+//     if (!character || !user_message) {
+//       return res
+//         .status(400)
+//         .json({ error: "Character and user message are required" });
+//     }
+
+//     character = character.toLowerCase();
+//     user_message = user_message.toLowerCase();
+
+//     // Query Pinecone for similar dialogue context based on the user query
+//     const pineconeResponse = await queryPinecone(
+//       character + " " + user_message
+//     );
+
+//     let retrievedContext = "";
+
+//     // If Pinecone response contains matches, join them into a single string if the name matches character
+//     if (pineconeResponse && pineconeResponse.matches.length > 0) {
+//       const matches = pineconeResponse.matches;
+//       matches.forEach((match) => {
+//         if (match.metadata.name === character) {
+//           retrievedContext += match.text;
+//         }
+//       });
+//     }
+
+//     // Build a complete prompt using character details, retrieved context, and the user query
+//     let fullPrompt;
+
+//     // check that this character is in pinecone db or not using pinecone metadata if not then make another prompt for this character
+//     if (character === pineconeResponse.matches[0].metadata.name) {
+//       fullPrompt = `You are ${character}, a movie character from Indian cinema.
+// ${
+//   retrievedContext ? "Relevant past dialogues:\n" + retrievedContext + "\n" : ""
+// }
+// User: ${user_message}
+// Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+//     } else {
+//       // if character is not in pinecone db then make another prompt
+//       fullPrompt = `You are ${character}, a movie character from Indian cinema.
+// User: ${user_message}
+// Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+//     }
+
+//     // Generate the final response using the Gemini AI
+//     const chatBotResponse = await generateGeminiResponse(fullPrompt);
+
+//     return res.json({ response: chatBotResponse });
+//   } catch (error) {
+//     console.error("Error fetching dialogues:", error);
+//     return res.status(500).json({ error: "Error fetching dialogues" });
+//   }
+// };
+
+// Controller to get a chatbot response (Level 4)
 exports.getChatBotResponse = async (req, res) => {
   try {
     let { character, user_message } = req.body;
@@ -105,6 +164,19 @@ exports.getChatBotResponse = async (req, res) => {
     character = character.toLowerCase();
     user_message = user_message.toLowerCase();
 
+    // create cache key for redis
+    const cacheKey = `chatbot_response_${character}_${user_message}`;
+
+    // Check if the response is already in the Redis cache
+    const cachedResponse = await redisClient.get(cacheKey);
+
+    if (cachedResponse) {
+      // If the response is found in the cache, return it
+      // console.log("Response found in cache");
+      return res.json({ response: cachedResponse });
+    }
+
+    // If the response is not found in the cache, proceed with generating the response
     // Query Pinecone for similar dialogue context based on the user query
     const pineconeResponse = await queryPinecone(
       character + " " + user_message
@@ -142,6 +214,9 @@ Provide a single, concise response in your signature tone. Limit your answer to 
 
     // Generate the final response using the Gemini AI
     const chatBotResponse = await generateGeminiResponse(fullPrompt);
+
+    // Store the response in the Redis cache for 1 minutes
+    await redisClient.setEx(cacheKey, 60, chatBotResponse);
 
     return res.json({ response: chatBotResponse });
   } catch (error) {
