@@ -15,6 +15,9 @@ require("./config/database").dbconnect(); // Connect to database
 // run this function to create vector embeddings for characters and store them in pinecone
 // require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
 
+require("./config/redis").redis();
+
+
 // Route setup
 app.use("/chat", chatRoutes);
 
