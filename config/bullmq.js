@@ -14,7 +14,6 @@ const redisConfig = new Redis(
 // Create a BullMQ queue instance
 const chatQueue = new Queue("chatQueue", {
   connection: redisConfig,
-  defaultJobOptions: { removeOnComplete: true, removeOnFail: true },
 });
 
 module.exports = { chatQueue, redisConfig };
