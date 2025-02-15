@@ -5,7 +5,7 @@ const chatRoutes = require("./routes/chatRoutes"); // Import chat routes
 const rateLimit = require("express-rate-limit");
 
 // Define port number
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 // Middleware setup
 app.use(express.json()); // Parse JSON requests
@@ -26,8 +26,7 @@ require("./config/database").dbconnect(); // Connect to database
 //require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
 
 // start the bullmq worker
-// require("./utils/chatWorker").startWorker();
-
+require("./utils/chatWorker").startWorker();
 
 // Route setup
 app.use("/chat", chatRoutes);
