@@ -28,7 +28,7 @@ exports.queryPinecone = async (query) => {
     const queryResponse = await index
       .namespace(process.env.PINECONE_NAMESPACE)
       .query({
-        topK: 2,
+        topK: 3,
         vector: queryEmbedding,
         includeValues: false,
         includeMetadata: true,

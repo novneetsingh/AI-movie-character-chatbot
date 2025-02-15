@@ -1,25 +1,13 @@
 const { createClient } = require("redis");
 
-const redisClient = createClient({
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-  },
-});
-
-redisClient.on("error", (err) => {
-  console.error("Redis connection error:", err);
-});
-
-const redisConnect = async () => {
+exports.redisConnect = () => {
   try {
-    await redisClient.connect();
-    console.log("Connected to Redis");
-  } catch (err) {
-    console.error("Error connecting to Redis:", err);
+    const redisClient = createClient();
+    redisClient.connect();
+
+    return redisClient;
+  } catch (error) {
+    console.error("Error connecting to Redis:", error);
+    process.exit(1);
   }
 };
-
-module.exports = { redisClient, redisConnect };

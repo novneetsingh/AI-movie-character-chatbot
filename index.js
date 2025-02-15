@@ -5,7 +5,7 @@ const chatRoutes = require("./routes/chatRoutes"); // Import chat routes
 const rateLimit = require("express-rate-limit");
 
 // Define port number
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware setup
 app.use(express.json()); // Parse JSON requests
@@ -23,10 +23,11 @@ app.use(
 require("./config/database").dbconnect(); // Connect to database
 
 // run this function to create vector embeddings for characters and store them in pinecone
-// require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
+//require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
 
-// Connect to redis
-require("./config/redis").redisConnect();
+// start the bullmq worker
+// require("./utils/chatWorker").startWorker();
+
 
 // Route setup
 app.use("/chat", chatRoutes);

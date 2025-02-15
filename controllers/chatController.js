@@ -1,8 +1,11 @@
 const Character = require("../models/Character");
 const { iconicCharacters } = require("../utils/charactersData");
-const { genAI } = require("../config/genAI"); // Import the configured Gemini instance
 const { queryPinecone } = require("../utils/queryPinecone"); // Import the Pinecone query function
-const { redisClient } = require("../config/redis");
+const { redisConnect } = require("../config/redis");
+const { generateGeminiResponse } = require("../utils/generateGeminiResponse");
+const { chatQueue } = require("../config/bullmq");
+
+const redisClient = redisConnect();
 
 // Create characters in the database
 exports.createCharacters = async (req, res) => {
@@ -79,7 +82,7 @@ exports.createCharacters = async (req, res) => {
 //     });
 
 //     // Combine the personality and user message into a full prompt with instructions
-//     const fullPrompt = `You are ${name}, a movie character from Indian cinema with the following personality: ${personality}.
+//     const fullPrompt = `You are ${name}, a movie character with the following personality: ${personality}.
 // User: ${user_message}
 // Reply in one single, concise sentence, using your signature tone. Limit your response to a maximum of 25 words.`;
 
@@ -128,17 +131,15 @@ exports.createCharacters = async (req, res) => {
 
 //     // check that this character is in pinecone db or not using pinecone metadata if not then make another prompt for this character
 //     if (character === pineconeResponse.matches[0].metadata.name) {
-//       fullPrompt = `You are ${character}, a movie character from Indian cinema.
-// ${
-//   retrievedContext ? "Relevant past dialogues:\n" + retrievedContext + "\n" : ""
-// }
-// User: ${user_message}
-// Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+//       fullPrompt = `You are ${character}, a movie character from movie name: ${pineconeResponse.matches[0].metadata.movie}.
+//       Relevant past dialogues: ${retrievedContext}
+//       User: ${user_message}
+//       Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
 //     } else {
 //       // if character is not in pinecone db then make another prompt
-//       fullPrompt = `You are ${character}, a movie character from Indian cinema.
-// User: ${user_message}
-// Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+//       fullPrompt = `You are ${character}, a movie character.
+//       User: ${user_message}
+//       Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
 //     }
 
 //     // Generate the final response using the Gemini AI
@@ -151,7 +152,7 @@ exports.createCharacters = async (req, res) => {
 //   }
 // };
 
-// Controller to get a chatbot response (Level 4)
+// Controller to get a chatbot response (Level 4) before bullMQ
 exports.getChatBotResponse = async (req, res) => {
   try {
     let { character, user_message } = req.body;
@@ -199,46 +200,66 @@ exports.getChatBotResponse = async (req, res) => {
 
     // check that this character is in pinecone db or not using pinecone metadata if not then make another prompt for this character
     if (character === pineconeResponse.matches[0].metadata.name) {
-      fullPrompt = `You are ${character}, a movie character from Indian cinema.
-${
-  retrievedContext ? "Relevant past dialogues:\n" + retrievedContext + "\n" : ""
-}
-User: ${user_message}
-Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+      fullPrompt = `You are ${character}, a movie character from movie name: ${pineconeResponse.matches[0].metadata.movie}.
+          Relevant past dialogues: ${retrievedContext}
+          User: ${user_message}
+          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
     } else {
       // if character is not in pinecone db then make another prompt
-      fullPrompt = `You are ${character}, a movie character from Indian cinema.
-User: ${user_message}
-Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+      fullPrompt = `You are ${character}, a movie character.
+          User: ${user_message}
+          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
     }
 
-    // Generate the final response using the Gemini AI
+    // Generate AI response using Gemini
     const chatBotResponse = await generateGeminiResponse(fullPrompt);
 
     // Store the response in the Redis cache for 1 minutes
     await redisClient.setEx(cacheKey, 60, chatBotResponse);
 
-    return res.json({ response: chatBotResponse });
+    return res.json({
+      response: chatBotResponse,
+    });
   } catch (error) {
     console.error("Error fetching dialogues:", error);
     return res.status(500).json({ error: "Error fetching dialogues" });
   }
 };
 
-// Separate function to generate a Gemini AI response
-const generateGeminiResponse = async (prompt) => {
-  try {
-    // Get the Gemini model instance (adjust model name as needed)
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-lite-preview-02-05",
-    });
+// Controller to get a chatbot response (Level 4) after bullMQ
+// exports.getChatBotResponse = async (req, res) => {
+//   try {
+//     let { character, user_message } = req.body;
+//     if (!character || !user_message) {
+//       return res
+//         .status(400)
+//         .json({ error: "Character and user message are required" });
+//     }
 
-    // Generate content using the provided prompt and a token limit
-    const result = await model.generateContent(prompt);
+//     character = character.toLowerCase();
+//     user_message = user_message.toLowerCase();
 
-    return result.response.text().trim();
-  } catch (error) {
-    console.error("Error generating Gemini response:", error);
-    return "I am unable to respond at the moment. Please try again later.";
-  }
-};
+//     // Enqueue the chat request job with BullMQ also delete when its complte
+
+//     const job = await chatQueue.add(
+//       "chatbotJob",
+//       {
+//         // Note: The worker will build the full prompt by calling Pinecone.
+//         character,
+//         user_message,
+//       },
+//       {
+//         removeOnComplete: true,
+//         removeOnFail: true,
+//       }
+//     );
+
+//     // Return a response indicating that the job has been enqueued
+//     return res.json({
+//       response: "Your response is being processed with job id: " + job.id + ".",
+//     });
+//   } catch (error) {
+//     console.error("Error fetching dialogues:", error);
+//     return res.status(500).json({ error: "Error fetching dialogues" });
+//   }
+// };
