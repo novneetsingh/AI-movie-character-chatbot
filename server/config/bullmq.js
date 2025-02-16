@@ -3,8 +3,10 @@ const Redis = require("ioredis");
 
 const redisConfig = new Redis(
   {
-    host: "localhost",
-    port: 6379,
+    husername: process.env.REDIS_USERNAME,
+    password: process.env.REDIS_PASSWORD,
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
   },
   {
     maxRetriesPerRequest: null,
