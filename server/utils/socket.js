@@ -32,7 +32,7 @@ exports.initializeSocket = (server) => {
           }
         );
 
-        console.log(`Job added to queue: ${job.id}`);
+        // console.log(`Job added to queue: ${job.id}`);
       } catch (error) {
         console.error("Error:", error);
         socket.emit("error", { message: "Error processing your request" });
@@ -43,8 +43,6 @@ exports.initializeSocket = (server) => {
       console.log("User disconnected:", socket.id);
     });
   });
-
-  return io;
 };
 
 exports.getIO = () => io;

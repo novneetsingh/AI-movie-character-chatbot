@@ -9,7 +9,7 @@ exports.startWorker = () => {
   const worker = new Worker(
     "chatQueue",
     async (job) => {
-      const { character, user_message, socketId } = job.data;
+      let { character, user_message, socketId } = job.data;
 
       character = character.toLowerCase();
       user_message = user_message.toLowerCase();
@@ -69,7 +69,7 @@ exports.startWorker = () => {
 
   // Handle job completion event and emit response to socket client
   worker.on("completed", (job, result) => {
-    console.log(`Job ${job.id} completed`);
+    // console.log(`Job ${job.id} completed`);
 
     io.to(result.socketId).emit("chatbotResponse", {
       response: result.response,
@@ -78,7 +78,7 @@ exports.startWorker = () => {
 
   // Handle job failure event and emit error message to socket client
   worker.on("failed", (job, err) => {
-    console.error(`Job ${job.id} failed: ${err.message}`);
+    // console.error(`Job ${job.id} failed: ${err.message}`);
 
     io.to(job.data.socketId).emit("error", {
       message: "Failed to process your message",
