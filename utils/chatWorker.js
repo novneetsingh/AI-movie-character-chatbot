@@ -1,29 +1,30 @@
-const { redisConfig } = require("../config/bullmq");
 const { Worker } = require("bullmq");
+const { redisConfig } = require("../config/bullmq");
 const { generateGeminiResponse } = require("./generateGeminiResponse");
 const { queryPinecone } = require("./queryPinecone");
-const { redisConnect } = require("../config/redis");
-
-const redisClient = redisConnect();
+const redisClient = require("../config/redis").redisConnect();
+const io = require("./socket").getIO();
 
 exports.startWorker = () => {
-  // Create a worker that processes jobs from "chatQueue"
   const worker = new Worker(
     "chatQueue",
     async (job) => {
-      const { character, user_message } = job.data;
+      const { character, user_message, socketId } = job.data;
 
-      // Create cache key for redis
+      character = character.toLowerCase();
+      user_message = user_message.toLowerCase();
+
+      // create cache key for redis
       const cacheKey = `chatbot_response_${character}_${user_message}`;
 
       // Check if the response is already in the Redis cache
       const cachedResponse = await redisClient.get(cacheKey);
-
+      // If the response is found in the cache, return it
       if (cachedResponse) {
-        return cachedResponse;
+        return { response: cachedResponse, socketId };
       }
 
-      // Query Pinecone for similar dialogue context based on the user query
+      // If the response is not found in the cache, proceed with generating the response
       const pineconeResponse = await queryPinecone(
         character + " " + user_message
       );
@@ -32,18 +33,15 @@ exports.startWorker = () => {
 
       // If Pinecone response contains matches, join them into a single string if the name matches character
       if (pineconeResponse && pineconeResponse.matches.length > 0) {
-        const matches = pineconeResponse.matches;
-        matches.forEach((match) => {
+        pineconeResponse.matches.forEach((match) => {
           if (match.metadata.name === character) {
             retrievedContext += match.text;
           }
         });
       }
 
-      // Build a complete prompt using character details, retrieved context, and the user query
       let fullPrompt;
 
-      // Check if this character is in pinecone db or not using pinecone metadata
       if (
         pineconeResponse.matches.length > 0 &&
         character === pineconeResponse.matches[0].metadata.name
@@ -61,21 +59,31 @@ exports.startWorker = () => {
       // Generate AI response using Gemini
       const chatBotResponse = await generateGeminiResponse(fullPrompt);
 
-      // Store the response in the Redis cache for 1 minute
+      // Store the response in the Redis cache for 1 minutes
       await redisClient.setEx(cacheKey, 60, chatBotResponse);
 
-      return chatBotResponse;
+      return { response: chatBotResponse, socketId };
     },
-    { connection: redisConfig, concurrency: 1 }
+    { connection: redisConfig, concurrency: 10 }
   );
 
-  worker.on("completed", (job) => {
-    console.log(`Job ${job.id} completed: ${job.returnvalue}`);
+  // Handle job completion event and emit response to socket client
+  worker.on("completed", (job, result) => {
+    console.log(`Job ${job.id} completed`);
+
+    io.to(result.socketId).emit("chatbotResponse", {
+      response: result.response,
+    });
   });
 
+  // Handle job failure event and emit error message to socket client
   worker.on("failed", (job, err) => {
     console.error(`Job ${job.id} failed: ${err.message}`);
+
+    io.to(job.data.socketId).emit("error", {
+      message: "Failed to process your message",
+    });
   });
 
-  console.log("BullMQ Worker started...");
+  console.log(`BullMQ Worker started`);
 };

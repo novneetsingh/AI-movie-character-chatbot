@@ -3,12 +3,15 @@ const app = express();
 require("dotenv").config(); // Load environment variables from .env file
 const chatRoutes = require("./routes/chatRoutes"); // Import chat routes
 const rateLimit = require("express-rate-limit");
+const http = require("http");
+const cors = require("cors");
 
 // Define port number
 const PORT = process.env.PORT || 4000;
 
 // Middleware setup
 app.use(express.json()); // Parse JSON requests
+app.use(cors());
 
 // Apply rate limiting middleware for all routes with a limit of 5 requests per second per IP
 app.use(
@@ -18,6 +21,12 @@ app.use(
     message: { error: "Too many requests, please try again later." },
   })
 );
+
+// create http server
+const server = http.createServer(app);
+
+// initialize socket
+require("./utils/socket").initializeSocket(server);
 
 // Connect to database and cloudinary
 require("./config/database").dbconnect(); // Connect to database
@@ -37,6 +46,6 @@ app.get("/", (req, res) => {
 });
 
 // Activate server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log("Server is running on port", PORT); // Log server activation
 });
