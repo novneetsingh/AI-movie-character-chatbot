@@ -1,9 +1,9 @@
-import http from "k6/http";
-import { sleep } from "k6";
+const http = require("k6/http");
+const { sleep } = require("k6");
 
 export const options = {
   vus: 10,
-  duration: "5s",
+  duration: "10s",
   cloud: {
     // Project: ai-chatbot
     projectID: 3747731,
@@ -16,7 +16,7 @@ export default function () {
   const url = "http://localhost:5000/chat"; // Use http if your local server doesn't support https
   const payload = JSON.stringify({
     character: "john wick",
-    user_message: "hello",
+    user_message: "who killed your dog?",
   });
 
   const params = {
@@ -25,11 +25,7 @@ export default function () {
     },
   };
 
-  for (let i = 0; i < 10; i++) {
-    const response = http.post(url, payload, params);
-    if (response.status !== 200) {
-      console.error(`Error: ${response.status}`);
-    }
-    sleep(1);
-  }
+  http.post(url, payload, params);
+
+  sleep(1);
 }
