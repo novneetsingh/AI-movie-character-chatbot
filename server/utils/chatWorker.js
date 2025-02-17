@@ -17,20 +17,21 @@ exports.startWorker = () => {
       // create cache key for redis
       const cacheKey = `chatbot_response_${character}_${user_message}`;
 
-      // Check if the response is already in the Redis cache
-      const cachedResponse = await redisClient.get(cacheKey);
+      // **Execute Redis & Pinecone in Parallel**
+      const [cachedResponse, pineconeResponse] = await Promise.all([
+        redisClient.get(cacheKey), // Check Redis cache
+        queryPinecone(character + " " + user_message), // Query Pinecone
+      ]);
+
       // If the response is found in the cache, return it
       if (cachedResponse) {
         return { response: cachedResponse, socketId };
       }
 
-      // If the response is not found in the cache, proceed with generating the response
-      const pineconeResponse = await queryPinecone(
-        character + " " + user_message
-      );
-
       // Build a complete prompt using character details, retrieved context, and the user query
-      let fullPrompt;
+      let fullPrompt = `You are ${character}, a movie character.
+      User: ${user_message}
+      Provide a single, concise response. Limit your response to a maximum of 15 words.`;
 
       // If Pinecone response contains matches, join them into a single string if the name matches character
       if (pineconeResponse && pineconeResponse.matches.length > 0) {
@@ -41,15 +42,8 @@ exports.startWorker = () => {
           Relevant past dialogue: ${matches[0].metadata.dialogue},
           having personality traits: ${matches[0].metadata.personality}.
           User: ${user_message}
-          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+          Provide a single, concise response in your signature tone. Limit your response to a maximum of 15 words.`;
         }
-      }
-
-      // if full prompt not found, use default prompt
-      if (!fullPrompt) {
-        fullPrompt = `You are ${character}, a movie character.
-      User: ${user_message}
-      Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
       }
 
       // Generate AI response using Gemini
@@ -60,7 +54,7 @@ exports.startWorker = () => {
 
       return { response: chatBotResponse, socketId };
     },
-    { connection: redisConfig, concurrency: 50 }
+    { connection: redisConfig, concurrency: 10 }
   );
 
   // Handle job completion event and emit response to socket client

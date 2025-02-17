@@ -112,7 +112,9 @@ exports.getChatBotResponse2 = async (req, res) => {
     );
 
     // Build a complete prompt using character details, retrieved context, and the user query
-    let fullPrompt;
+    let fullPrompt = `You are ${character}, a movie character.
+    User: ${user_message}
+    Provide a single, concise response. Limit your response to a maximum of 15 words.`;
 
     // If Pinecone response contains matches, join them into a single string if the name matches character
     if (pineconeResponse && pineconeResponse.matches.length > 0) {
@@ -125,13 +127,6 @@ exports.getChatBotResponse2 = async (req, res) => {
           User: ${user_message}
           Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
       }
-    }
-
-    // if full prompt not found, use default prompt
-    if (!fullPrompt) {
-      fullPrompt = `You are ${character}, a movie character.
-      User: ${user_message}
-      Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
     }
 
     // Generate the final response using the Gemini AI
