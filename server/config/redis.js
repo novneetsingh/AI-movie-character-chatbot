@@ -9,13 +9,14 @@ const redisClient = createClient({
   },
 });
 
-exports.redisConnect = () => {
+(async () => {
   try {
     redisClient.connect();
     console.log("Connected to Redis");
-    return redisClient;
   } catch (error) {
     console.error("Error connecting to Redis:", error);
     process.exit(1);
   }
-};
+})();
+
+module.exports = { redisClient };

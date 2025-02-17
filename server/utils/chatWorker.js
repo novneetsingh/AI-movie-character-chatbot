@@ -2,7 +2,7 @@ const { Worker } = require("bullmq");
 const { redisConfig } = require("../config/bullmq");
 const { generateGeminiResponse } = require("./generateGeminiResponse");
 const { queryPinecone } = require("./queryPinecone");
-const redisClient = require("../config/redis").redisConnect();
+const { redisClient } = require("../config/redis");
 const io = require("./socket").getIO();
 
 exports.startWorker = () => {
