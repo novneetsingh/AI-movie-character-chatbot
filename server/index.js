@@ -32,7 +32,7 @@ require("./utils/socket").initializeSocket(server);
 require("./config/database").dbconnect(); // Connect to database
 
 // run this function to create vector embeddings for characters and store them in pinecone
-//require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
+// require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
 
 // start the bullmq worker
 require("./utils/chatWorker").startWorker();

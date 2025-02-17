@@ -9,28 +9,28 @@ const { pc } = require("../config/pinecone");
  * Note: The embedding generation only uses the text field.
  *       The metadata is added only during the upsert to provide extra context.
  */
+
 exports.indexCharacterEmbeddings = async () => {
   try {
     // Fetch all characters from MongoDB
-    const characters = await Character.find().exec();
+    let characters = await Character.find().exec();
 
     // Prepare a data array: each dialogue becomes an object with a unique ID, text, and metadata.
     const data = [];
 
     characters.forEach((char) => {
-      if (Array.isArray(char.dialogues)) {
-        char.dialogues.forEach((dialogue, idx) => {
-          data.push({
-            id: `${char._id}-${idx}`, // Create a unique ID for each dialogue
-            text: dialogue, // Text to be embedded
-            metadata: {
-              name: char.name,
-              movie: char.movie,
-              personality: char.personality,
-            },
-          });
+      char.dialogues.forEach((dialogue, index) => {
+        data.push({
+          id: `${char._id}-${index}`, // Create a unique ID for each dialogue
+          text: `${char.name}: ${dialogue}`, // Text to be embedded
+          metadata: {
+            name: char.name,
+            movie: char.movie,
+            dialogue: dialogue,
+            personality: char.personality,
+          },
         });
-      }
+      });
     });
 
     // console.log("Prepared data for embeddings:", data);
@@ -58,19 +58,14 @@ exports.indexCharacterEmbeddings = async () => {
     const records = data.map((d, i) => ({
       id: d.id,
       values: embeddingsResponse[i].values, // Ensure your embeddings have a 'values' field
-      metadata: {
-        text: d.text,
-        name: d.metadata.name,
-        movie: d.metadata.movie,
-        personality: d.metadata.personality,
-      },
+      metadata: d.metadata,
     }));
 
     // Upsert the vectors into the index under a specific namespace (e.g., 'example-namespace')
     await index.namespace(process.env.PINECONE_NAMESPACE).upsert(records);
 
     console.log(
-      `Upserted ${records.length} vectors into the '${process.env.PINECONE_INDEX_NAME}' index under namespace '${process.env.PINECONE_NAMESPACE}'.`
+      `Successfully indexed ${records.length} vectors into the '${process.env.PINECONE_INDEX_NAME}' index under namespace '${process.env.PINECONE_NAMESPACE}'.`
     );
   } catch (error) {
     console.error("Error indexing character embeddings:", error);

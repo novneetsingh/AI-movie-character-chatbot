@@ -29,31 +29,27 @@ exports.startWorker = () => {
         character + " " + user_message
       );
 
-      let retrievedContext = "";
+      // Build a complete prompt using character details, retrieved context, and the user query
+      let fullPrompt;
 
       // If Pinecone response contains matches, join them into a single string if the name matches character
       if (pineconeResponse && pineconeResponse.matches.length > 0) {
-        pineconeResponse.matches.forEach((match) => {
-          if (match.metadata.name === character) {
-            retrievedContext += match.text;
-          }
-        });
+        const matches = pineconeResponse.matches;
+
+        if (matches[0].metadata.name === character) {
+          fullPrompt = `You are ${character}, a movie character from movie name: ${matches[0].metadata.movie}.
+          Relevant past dialogue: ${matches[0].metadata.dialogue},
+          having personality traits: ${matches[0].metadata.personality}.
+          User: ${user_message}
+          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+        }
       }
 
-      let fullPrompt;
-
-      if (
-        pineconeResponse.matches.length > 0 &&
-        character === pineconeResponse.matches[0].metadata.name
-      ) {
-        fullPrompt = `You are ${character}, a movie character from movie name: ${pineconeResponse.matches[0].metadata.movie}.
-          Relevant past dialogues: ${retrievedContext}
-          User: ${user_message}
-          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
-      } else {
+      // if full prompt not found, use default prompt
+      if (!fullPrompt) {
         fullPrompt = `You are ${character}, a movie character.
-          User: ${user_message}
-          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+      User: ${user_message}
+      Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
       }
 
       // Generate AI response using Gemini
@@ -64,7 +60,7 @@ exports.startWorker = () => {
 
       return { response: chatBotResponse, socketId };
     },
-    { connection: redisConfig, concurrency: 10 }
+    { connection: redisConfig, concurrency: 50 }
   );
 
   // Handle job completion event and emit response to socket client

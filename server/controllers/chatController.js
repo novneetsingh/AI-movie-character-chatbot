@@ -111,29 +111,24 @@ exports.getChatBotResponse2 = async (req, res) => {
       character + " " + user_message
     );
 
-    let retrievedContext = "";
+    // Build a complete prompt using character details, retrieved context, and the user query
+    let fullPrompt;
 
     // If Pinecone response contains matches, join them into a single string if the name matches character
     if (pineconeResponse && pineconeResponse.matches.length > 0) {
       const matches = pineconeResponse.matches;
-      matches.forEach((match) => {
-        if (match.metadata.name === character) {
-          retrievedContext += match.text;
-        }
-      });
+
+      if (matches[0].metadata.name === character) {
+        fullPrompt = `You are ${character}, a movie character from movie name: ${matches[0].metadata.movie}.
+          Relevant past dialogue: ${matches[0].metadata.dialogue},
+          having personality traits: ${matches[0].metadata.personality}.
+          User: ${user_message}
+          Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
+      }
     }
 
-    // Build a complete prompt using character details, retrieved context, and the user query
-    let fullPrompt;
-
-    // check that this character is in pinecone db or not using pinecone metadata if not then make another prompt for this character
-    if (character === pineconeResponse.matches[0].metadata.name) {
-      fullPrompt = `You are ${character}, a movie character from movie name: ${pineconeResponse.matches[0].metadata.movie}.
-      Relevant past dialogues: ${retrievedContext}
-      User: ${user_message}
-      Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
-    } else {
-      // if character is not in pinecone db then make another prompt
+    // if full prompt not found, use default prompt
+    if (!fullPrompt) {
       fullPrompt = `You are ${character}, a movie character.
       User: ${user_message}
       Provide a single, concise response in your signature tone. Limit your answer to a maximum of 15 words.`;
