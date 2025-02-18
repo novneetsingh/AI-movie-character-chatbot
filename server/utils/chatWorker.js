@@ -34,7 +34,7 @@ exports.startWorker = () => {
       Provide a single, concise response. Limit your response to a maximum of 15 words.`;
 
       // If Pinecone response contains matches, join them into a single string if the name matches character
-      if (pineconeResponse && pineconeResponse.matches.length > 0) {
+      if (pineconeResponse?.matches?.length > 0) {
         const matches = pineconeResponse.matches;
 
         if (matches[0].metadata.name === character) {
@@ -68,7 +68,7 @@ exports.startWorker = () => {
 
   // Handle job failure event and emit error message to socket client
   worker.on("failed", (job, err) => {
-    // console.error(`Job ${job.id} failed: ${err.message}`);
+    //console.error(`Job ${job.id} failed: ${err.message}`);
 
     io.to(job.data.socketId).emit("error", {
       message: "Failed to process your message",

@@ -117,7 +117,7 @@ exports.getChatBotResponse2 = async (req, res) => {
     Provide a single, concise response. Limit your response to a maximum of 15 words.`;
 
     // If Pinecone response contains matches, join them into a single string if the name matches character
-    if (pineconeResponse && pineconeResponse.matches.length > 0) {
+    if (pineconeResponse?.matches?.length > 0) {
       const matches = pineconeResponse.matches;
 
       if (matches[0].metadata.name === character) {
