@@ -12,9 +12,9 @@ A real-time AI-powered chatbot that lets users chat with iconic movie characters
 
 ## 🌐 **Live Demo**
 
-🔗 **Frontend:** 
+🔗 **Frontend:** https://ai-movie-chatbot.onrender.com
 
-🔗 **Backend:**
+🔗 **Backend:** https://ai-movie-character-chatbot-hdvc.onrender.com
 
 ---
 
@@ -40,10 +40,6 @@ A real-time AI-powered chatbot that lets users chat with iconic movie characters
 
 - Uses **Socket.io** for seamless, instant chatbot interactions.
 
-### 🔹 **Scalability & Deployment**
-
-- Deployed on **AWS/Render**.
-
 ---
 
 ## 🛠 **Tech Stack**
@@ -57,7 +53,7 @@ A real-time AI-powered chatbot that lets users chat with iconic movie characters
 | **Queue**       | BullMQ              |
 | **AI Model**    | Google Gemini AI    |
 | **Web Sockets** | Socket.io           |
-| **Deployment**  | Render/AWS          |
+| **Deployment**  | Render              |
 
 ---
 
