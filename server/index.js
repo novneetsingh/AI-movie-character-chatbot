@@ -28,8 +28,8 @@ const server = http.createServer(app);
 // initialize socket
 require("./utils/socket").initializeSocket(server);
 
-// Connect to database and cloudinary
-require("./config/database").dbconnect(); // Connect to database
+// Connect to database
+// require("./config/database").dbconnect(); // Connect to database
 
 // run this function to create vector embeddings for characters and store them in pinecone
 // require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
@@ -38,7 +38,7 @@ require("./config/database").dbconnect(); // Connect to database
 require("./utils/chatWorker").startWorker();
 
 // Route setup
-app.use("/chat", chatRoutes);
+// app.use("/chat", chatRoutes);
 
 // Default route
 app.get("/", (req, res) => {

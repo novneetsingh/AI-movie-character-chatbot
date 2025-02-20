@@ -6,7 +6,7 @@ const { redisClient } = require("../config/redis");
 const io = require("./socket").getIO();
 
 exports.startWorker = () => {
-  const worker = new Worker(
+  new Worker(
     "chatQueue",
     async (job) => {
       let { character, user_message, socketId } = job.data;
@@ -25,7 +25,11 @@ exports.startWorker = () => {
 
       // If the response is found in the cache, return it
       if (cachedResponse) {
-        return { response: cachedResponse, socketId };
+        io.to(socketId).emit("chatbotResponse", { response: cachedResponse });
+
+        // Notify the frontend that the response is complete
+        io.to(socketId).emit("chatbotResponseEnd");
+        return;
       }
 
       // Build a complete prompt using character details, retrieved context, and the user query
@@ -49,31 +53,24 @@ exports.startWorker = () => {
       // Generate AI response using Gemini
       const chatBotResponse = await generateGeminiResponse(fullPrompt);
 
-      // Store the response in the Redis cache for 1 minutes
-      await redisClient.setEx(cacheKey, 60, chatBotResponse);
+      // emit response in chunks to socket client
+      for await (const chunk of chatBotResponse) {
+        await new Promise((resolve) => {
+          setTimeout(() => {
+            io.to(socketId).emit("chatbotResponse", { response: chunk });
+            resolve(); // Only after this, the loop moves to the next iteration
+          }, 30); // Set the delay to 30ms
+        });
+      }
 
-      return { response: chatBotResponse, socketId };
+      // Notify the frontend that the response is complete
+      io.to(socketId).emit("chatbotResponseEnd");
+
+      // Set the response in the Redis cache
+      await redisClient.setEx(cacheKey, 60, chatBotResponse);
     },
     { connection: redisConfig, concurrency: 10 }
   );
-
-  // Handle job completion event and emit response to socket client
-  worker.on("completed", (job, result) => {
-    // console.log(`Job ${job.id} completed`);
-
-    io.to(result.socketId).emit("chatbotResponse", {
-      response: result.response,
-    });
-  });
-
-  // Handle job failure event and emit error message to socket client
-  worker.on("failed", (job, err) => {
-    //console.error(`Job ${job.id} failed: ${err.message}`);
-
-    io.to(job.data.socketId).emit("error", {
-      message: "Failed to process your message",
-    });
-  });
 
   console.log(`BullMQ Worker started`);
 };
