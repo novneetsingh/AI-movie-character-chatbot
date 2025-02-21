@@ -9,7 +9,7 @@ const {
 } = require("../controllers/chatController");
 
 // Route to get a dialogue
-router.post("/", getChatBotResponse2);
+router.post("/", getChatBotResponse1);
 
 // Route to create dialogues
 router.post("/create", createCharacters);

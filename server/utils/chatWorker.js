@@ -10,64 +10,67 @@ exports.startWorker = () => {
     "chatQueue",
     async (job) => {
       let { character, user_message, socketId } = job.data;
-
       character = character.toLowerCase();
       user_message = user_message.toLowerCase();
 
-      // create cache key for redis
-      const cacheKey = `chatbot_response_${character}_${user_message}`;
+      // Create cache key for Redis history
+      const cacheKey = `chatbot_history_${socketId}_${character}`;
 
-      // **Execute Redis & Pinecone in Parallel**
-      const [cachedResponse, pineconeResponse] = await Promise.all([
-        redisClient.get(cacheKey), // Check Redis cache
-        queryPinecone(character + " " + user_message), // Query Pinecone
+      // Execute Redis & Pinecone in parallel
+      const [cachedHistoryString, pineconeResponse] = await Promise.all([
+        redisClient.get(cacheKey), // Get cached chat history as string
+        queryPinecone(`${character} ${user_message}`), // Query Pinecone
       ]);
 
-      // If the response is found in the cache, return it
-      if (cachedResponse) {
-        io.to(socketId).emit("chatbotResponse", { response: cachedResponse });
+      // Parse history from Redis or initialize an empty array
+      let history = cachedHistoryString ? JSON.parse(cachedHistoryString) : [];
 
-        // Notify the frontend that the response is complete
-        io.to(socketId).emit("chatbotResponseEnd");
-        return;
-      }
+      // Format chat history for the prompt (if any)
+      const formattedHistory = history
+        .map((entry) => `User: ${entry.user}\nAI: ${entry.response}`)
+        .join("\n");
 
-      // Build a complete prompt using character details, retrieved context, and the user query
+      // Build the prompt including history
       let fullPrompt = `You are ${character}, a movie character.
-      User: ${user_message}
-      Provide a single, concise response. Limit your response to a maximum of 15 words.`;
+${formattedHistory ? `\nPrevious chat history:\n${formattedHistory}\n` : ""}
+User: ${user_message}
+Provide a single, concise response. Limit your response to a maximum of 15 words.`;
 
-      // If Pinecone response contains matches, join them into a single string if the name matches character
+      // Update prompt with Pinecone data if available and matching the character
       if (pineconeResponse?.matches?.length > 0) {
-        const matches = pineconeResponse.matches;
-
-        if (matches[0].metadata.name === character) {
-          fullPrompt = `You are ${character}, a movie character from movie name: ${matches[0].metadata.movie}.
-          Relevant past dialogue: ${matches[0].metadata.dialogue},
-          having personality traits: ${matches[0].metadata.personality}.
-          User: ${user_message}
-          Provide a single, concise response in your signature tone. Limit your response to a maximum of 15 words.`;
+        const match = pineconeResponse.matches[0];
+        if (match.metadata.name === character) {
+          fullPrompt = `You are ${character}, a movie character from the movie: ${
+            match.metadata.movie
+          }.
+Relevant past dialogues: ${match.metadata.dialogue}
+having personality traits: ${match.metadata.personality}\n
+${formattedHistory ? `Previous chat history:\n${formattedHistory}\n` : ""}
+User: ${user_message}
+Provide a single, concise response in your signature tone. Limit your response to a maximum of 15 words.`;
         }
       }
 
-      // Generate AI response using Gemini
-      const chatBotResponse = await generateGeminiResponse(fullPrompt);
+      // Generate AI response using Gemini and accumulate full response
+      const geminiResponse = await generateGeminiResponse(fullPrompt);
 
-      // emit response in chunks to socket client
-      for await (const chunk of chatBotResponse) {
+      for await (const chunk of geminiResponse) {
         await new Promise((resolve) => {
           setTimeout(() => {
             io.to(socketId).emit("chatbotResponse", { response: chunk });
-            resolve(); // Only after this, the loop moves to the next iteration
-          }, 30); // Set the delay to 30ms
+            resolve();
+          }, 30);
         });
       }
 
-      // Notify the frontend that the response is complete
+      // Notify frontend that response is complete
       io.to(socketId).emit("chatbotResponseEnd");
 
-      // Set the response in the Redis cache
-      await redisClient.setEx(cacheKey, 60, chatBotResponse);
+      // Append new Q&A pair to history
+      history.push({ user: user_message, response: geminiResponse });
+
+      // Update Redis with new history and set TTL to 5 minutes (300 seconds)
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(history));
     },
     { connection: redisConfig, concurrency: 10 }
   );

@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 require("dotenv").config(); // Load environment variables from .env file
-const chatRoutes = require("./routes/chatRoutes"); // Import chat routes
+const chatRoutes = require("./routes/chatRoutes");
 const rateLimit = require("express-rate-limit");
 const http = require("http");
 const cors = require("cors");
@@ -29,7 +29,7 @@ const server = http.createServer(app);
 require("./utils/socket").initializeSocket(server);
 
 // Connect to database
-// require("./config/database").dbconnect(); // Connect to database
+require("./config/database").dbconnect();
 
 // run this function to create vector embeddings for characters and store them in pinecone
 // require("./utils/createVectorEmbeddings").indexCharacterEmbeddings();
@@ -38,7 +38,7 @@ require("./utils/socket").initializeSocket(server);
 require("./utils/chatWorker").startWorker();
 
 // Route setup
-// app.use("/chat", chatRoutes);
+app.use("/chat", chatRoutes);
 
 // Default route
 app.get("/", (req, res) => {
